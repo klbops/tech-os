@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TechOS — Sistema de Ordens de Serviço</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f14;--surface:#161a23;--surface2:#1e2330;--border:#252d3d;--accent:#3b82f6;--accent2:#6366f1;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--text:#e8ecf4;--text2:#8892a4;--text3:#4b5668;--radius:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ===== LOGIN ===== */
+#login-screen{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow:hidden}
+.login-bg{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.login-bg::before{content:'';position:absolute;top:-20%;left:-10%;width:600px;height:600px;background:radial-gradient(circle,rgba(59,130,246,.12) 0%,transparent 70%);border-radius:50%}
+.login-bg::after{content:'';position:absolute;bottom:-20%;right:-10%;width:500px;height:500px;background:radial-gradient(circle,rgba(99,102,241,.1) 0%,transparent 70%);border-radius:50%}
+.login-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(37,45,61,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(37,45,61,.3) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 30%,transparent 100%)}
+.login-box{position:relative;z-index:1;width:420px;max-width:96vw;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:40px;box-shadow:0 32px 80px rgba(0,0,0,.5);animation:loginIn .4s ease}
+@keyframes loginIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo-icon{width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 14px;box-shadow:0 8px 24px rgba(59,130,246,.35)}
+.login-logo-name{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;color:var(--text)}
+.login-logo-sub{font-size:13px;color:var(--text3);margin-top:4px}
+.login-form{display:flex;flex-direction:column;gap:16px}
+.login-field{display:flex;flex-direction:column;gap:6px}
+.login-field label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.7px}
+.login-field input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .15s,box-shadow .15s}
+.login-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+.login-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;padding:13px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .18s;margin-top:4px}
+.login-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,.4)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.login-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#f87171;display:none}
+.login-hint{text-align:center;font-size:11px;color:var(--text3);margin-top:8px;padding:8px;background:rgba(255,255,255,.02);border-radius:6px;border:1px solid var(--border)}
+
+/* ===== APP ===== */
+#app-screen{display:none}
+.shell{display:flex;min-height:100vh}
+.sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:100}
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-icon{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;box-shadow:0 4px 14px rgba(59,130,246,.3)}
+.logo-text{font-family:'Space Mono',monospace;font-size:16px;font-weight:700}
+.logo-sub{font-size:10px;color:var(--text3)}
+.sidebar-nav{padding:12px 8px;flex:1;overflow-y:auto}
+.nav-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);padding:10px 10px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--text2);font-size:13.5px;font-weight:500;transition:all .15s;margin-bottom:1px;user-select:none}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(59,130,246,.14);color:var(--accent)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:rgba(239,68,68,.85);color:#fff;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;min-width:18px;text-align:center}
+.sidebar-user{padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.user-avatar{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;font-weight:700}
+.user-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.user-logout{margin-left:auto;cursor:pointer;color:var(--text3);font-size:16px;padding:4px;border-radius:5px;transition:all .13s}
+.user-logout:hover{color:var(--danger);background:rgba(239,68,68,.1)}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 26px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:16px;font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .16s;white-space:nowrap;text-decoration:none}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#2563eb;transform:translateY(-1px);box-shadow:0 4px 14px rgba(59,130,246,.35)}
+.btn-primary:disabled{background:#2a3040;color:var(--text3);cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{background:var(--border);color:var(--text)}
+.btn-danger{background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.25)}.btn-danger:hover{background:rgba(239,68,68,.22)}
+.btn-success{background:rgba(16,185,129,.12);color:var(--success);border:1px solid rgba(16,185,129,.25)}.btn-success:hover{background:rgba(16,185,129,.22)}
+.btn-sm{padding:5px 11px;font-size:12px}.btn-xs{padding:3px 8px;font-size:11px}
+.content{padding:26px;flex:1}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;transition:transform .2s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat-blue::before{background:linear-gradient(90deg,var(--accent),var(--accent2))}.stat-green::before{background:linear-gradient(90deg,var(--success),#34d399)}
+.stat-yellow::before{background:linear-gradient(90deg,var(--warning),#fbbf24)}.stat-red::before{background:linear-gradient(90deg,var(--danger),#f87171)}
+.stat-label{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.stat-value{font-size:30px;font-family:'Space Mono',monospace;font-weight:700;line-height:1}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:5px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:18px}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card-title{font-size:14px;font-weight:600}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-weight:600;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;font-size:13px;border-bottom:1px solid rgba(37,45,61,.6);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:background .1s}
+tbody tr:hover td{background:rgba(255,255,255,.018)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-aberta{background:rgba(59,130,246,.14);color:#60a5fa}.badge-aberta::before{background:#60a5fa}
+.badge-andamento{background:rgba(245,158,11,.14);color:#fbbf24}.badge-andamento::before{background:#fbbf24;animation:blink 1.5s infinite}
+.badge-concluida{background:rgba(16,185,129,.14);color:#34d399}.badge-concluida::before{background:#34d399}
+.badge-cancelada{background:rgba(239,68,68,.1);color:#f87171}.badge-cancelada::before{background:#f87171}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.prio{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+.prio-alta{background:rgba(239,68,68,.14);color:var(--danger)}.prio-media{background:rgba(245,158,11,.14);color:var(--warning)}.prio-baixa{background:rgba(16,185,129,.14);color:var(--success)}
+.os-num{font-family:'Space Mono',monospace;font-size:12px;color:var(--accent);font-weight:700;cursor:pointer}.os-num:hover{text-decoration:underline}
+.action-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:5px;color:var(--text3);font-size:13px;transition:all .13s}.action-btn:hover{background:var(--surface2);color:var(--text)}
+.filter-bar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.filter-chip{padding:5px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);transition:all .13s;user-select:none}
+.filter-chip:hover{border-color:var(--accent);color:var(--accent)}.filter-chip.active{background:rgba(59,130,246,.14);border-color:var(--accent);color:var(--accent)}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 12px}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;width:200px}
+.search-box input::placeholder{color:var(--text3)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(5px)}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:720px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.65);transform:translateY(16px) scale(.97);transition:transform .22s}
+.modal-overlay.open .modal{transform:translateY(0) scale(1)}
+.modal-sm{width:460px}
+.modal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:10}
+.modal-title{font-size:15px;font-weight:700}
+.modal-close{background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .13s}.modal-close:hover{background:var(--border);color:var(--text)}
+.modal-body{padding:22px}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:9px;position:sticky;bottom:0;background:var(--surface)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px}
+label .req{color:var(--danger);margin-left:2px}
+input,select,textarea{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color .14s,box-shadow .14s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+select option{background:var(--surface)}
+textarea{resize:vertical;min-height:78px;line-height:1.5}
+.form-section{grid-column:1/-1;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;display:flex;align-items:center;gap:8px;margin-top:2px}
+.form-section::after{content:'';flex:1;height:1px;background:var(--border)}
+.detail-row{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid rgba(37,45,61,.7)}
+.detail-row:last-child{border:none}
+.detail-key{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);font-weight:700;width:130px;flex-shrink:0;padding-top:2px}
+.detail-val{font-size:13px;color:var(--text);flex:1}
+.hist-item{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid rgba(37,45,61,.5)}
+.hist-item:last-child{border:none}
+.hist-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:4px;flex-shrink:0}
+.hist-content{flex:1}
+.hist-acao{font-size:12px;font-weight:600}
+.hist-desc{font-size:11px;color:var(--text2)}
+.hist-time{font-size:10px;color:var(--text3);margin-top:1px}
+.empty-state{text-align:center;padding:52px 20px;color:var(--text3)}
+.empty-icon{font-size:44px;margin-bottom:10px;opacity:.35}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tab{padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .14s;margin-bottom:-1px}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.toast-wrap{position:fixed;top:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.4);display:flex;align-items:center;gap:9px;animation:toastIn .22s ease;min-width:270px;pointer-events:all}
+.toast.success{border-left:3px solid var(--success)}.toast.error{border-left:3px solid var(--danger)}.toast.info{border-left:3px solid var(--accent)}
+@keyframes toastIn{from{transform:translateX(35px);opacity:0}to{transform:translateX(0);opacity:1}}
+.loading{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--text3);gap:12px;font-size:14px}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tag-inline{display:inline-flex;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(59,130,246,.1);color:var(--accent)}
+/* admin badge */
+.perfil-admin{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.perfil-operador{background:rgba(59,130,246,.1);color:#60a5fa;border:1px solid rgba(59,130,246,.2)}
+.perfil-tecnico{background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="login-screen">
+  <div class="login-bg"><div class="login-grid"></div></div>
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🔧</div>
+      <div class="login-logo-name">TechOS</div>
+      <div class="login-logo-sub">Sistema de Ordens de Serviço</div>
+    </div>
+    <div class="login-form">
+      <div class="login-error" id="login-error">❌ Email ou senha incorretos</div>
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-field">
+        <label>Senha</label>
+        <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="login-btn" id="login-btn" onclick="doLogin()">Entrar no Sistema</button>
+      <div class="login-hint">
+        🔑 Acesso padrão: <strong>admin@techos.com</strong> / <strong>admin123</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app-screen">
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🔧</div>
+      <div><div class="logo-text">TechOS</div><div class="logo-sub">Ordens de Serviço</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Principal</div>
+      <div class="nav-item active" data-page="dashboard"><span class="nav-icon">📊</span>Dashboard</div>
+      <div class="nav-item" data-page="os"><span class="nav-icon">📋</span>Ordens de Serviço<span class="nav-badge" id="badge-os">0</span></div>
+      <div class="nav-label">Cadastros</div>
+      <div class="nav-item" data-page="clientes"><span class="nav-icon">👥</span>Clientes</div>
+      <div class="nav-item" data-page="tecnicos"><span class="nav-icon">🛠️</span>Técnicos</div>
+      <div class="nav-item" data-page="servicos"><span class="nav-icon">⚙️</span>Tipos de Serviço</div>
+      <div class="nav-label" id="admin-section" style="display:none">Administração</div>
+      <div class="nav-item" data-page="usuarios" id="nav-usuarios" style="display:none"><span class="nav-icon">🔐</span>Usuários</div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">A</div>
+      <div style="min-width:0">
+        <div class="user-name" id="user-name">Usuário</div>
+        <div class="user-role" id="user-role">operador</div>
+      </div>
+      <div class="user-logout" onclick="doLogout()" title="Sair">⏻</div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-right" id="topbar-actions"></div>
+    </header>
+    <div class="content" id="app-content"><div class="loading"><div class="spinner"></div>Carregando...</div></div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL OS -->
+<div class="modal-overlay" id="modal-os">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-os-title">Nova Ordem de Serviço</div>
+      <button class="modal-close" onclick="closeModal('modal-os')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-section">Dados do Chamado</div>
+        <div class="form-group"><label>Cliente<span class="req">*</span></label><select id="f-cliente"></select></div>
+        <div class="form-group"><label>Tipo de Serviço</label><select id="f-tipo"></select></div>
+        <div class="form-group"><label>Técnico</label><select id="f-tecnico"></select></div>
+        <div class="form-group"><label>Prioridade</label>
+          <select id="f-prioridade"><option value="Baixa">🟢 Baixa</option><option value="Media" selected>🟡 Média</option><option value="Alta">🔴 Alta</option></select></div>
+        <div class="form-group"><label>Status</label>
+          <select id="f-status"><option>Aberta</option><option>Em Andamento</option><option>Concluida</option><option>Cancelada</option></select></div>
+        <div class="form-group"><label>Prazo</label><input type="date" id="f-prazo"></div>
+        <div class="form-group"><label>Equipamento</label><input type="text" id="f-equipamento" placeholder="Ex: Notebook Dell XPS 15"></div>
+        <div class="form-group"><label>Número de Série</label><input type="text" id="f-serie" placeholder="SN-XXXXX"></div>
+        <div class="form-group full"><label>Descrição do Problema<span class="req">*</span></label><textarea id="f-descricao" placeholder="Descreva o problema..."></textarea></div>
+        <div class="form-group full"><label>Observações Internas</label><textarea id="f-obs" style="min-height:58px"></textarea></div>
+        <div class="form-section">Financeiro</div>
+        <div class="form-group"><label>Valor Peças (R$)</label><input type="number" id="f-vp" min="0" step="0.01"></div>
+        <div class="form-group"><label>Mão de Obra (R$)</label><input type="number" id="f-vm" min="0" step="0.01"></div>
+        <div class="form-group full" id="laudo-group" style="display:none"><label>Laudo Técnico</label><textarea id="f-laudo" style="min-height:70px"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-os')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-os" onclick="saveOS()">💾 Salvar OS</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="d-num">OS #0001</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px" id="d-meta"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-detail')">✕</button>
+    </div>
+    <div class="modal-body" id="d-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deleteOS(currentDetailId);closeModal('modal-detail')">🗑 Excluir</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-detail')">Fechar</button>
+      <a class="btn btn-success btn-sm" id="d-pdf-btn" href="#" target="_blank">📄 PDF</a>
+      <button class="btn btn-primary btn-sm" onclick="editOS(currentDetailId);closeModal('modal-detail')">✏️ Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CADASTRO GENÉRICO -->
+<div class="modal-overlay" id="modal-cad">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="cad-title">Novo Cadastro</div>
+      <button class="modal-close" onclick="closeModal('modal-cad')">✕</button>
+    </div>
+    <div class="modal-body" id="cad-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cad')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-cad">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MINHA CONTA -->
+<div class="modal-overlay" id="modal-conta">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Minha Conta</div>
+      <button class="modal-close" onclick="closeModal('modal-conta')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-section">Alterar Senha</div>
+        <div class="form-group full"><label>Senha Atual</label><input type="password" id="senha-atual" placeholder="••••••••"></div>
+        <div class="form-group full"><label>Nova Senha</label><input type="password" id="senha-nova" placeholder="••••••••"></div>
+        <div class="form-group full"><label>Confirmar Nova Senha</label><input type="password" id="senha-conf" placeholder="••••••••"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-conta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarSenha()">🔒 Salvar Senha</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let token = localStorage.getItem('techos_token') || '';
+let currentUser = null;
+let currentPage = 'dashboard';
+let currentDetailId = null;
+let currentEditId = null;
+let filterStatus = 'all';
+let searchQuery = '';
+let searchTimer = null;
+let cadData = {};
+
+// ============================================================
+// API
+// ============================================================
+async function api(method, url, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (r.status === 401) { doLogout(); throw new Error('Sessao expirada'); }
+  if (!r.ok) { const e = await r.json().catch(()=>({error:'Erro desconhecido'})); throw new Error(e.error || 'Erro'); }
+  return r.json();
+}
+const get = url => api('GET', url);
+const post = (url, b) => api('POST', url, b);
+const put = (url, b) => api('PUT', url, b);
+const del = url => api('DELETE', url);
+
+// ============================================================
+// AUTH
+// ============================================================
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  if (!email || !senha) { err.textContent = '❌ Preencha email e senha'; err.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = '⏳ Entrando...';
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, senha })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    token = data.token;
+    currentUser = data.user;
+    localStorage.setItem('techos_token', token);
+    showApp();
+  } catch (e) {
+    err.textContent = '❌ ' + e.message;
+    err.style.display = 'block';
+  } finally { btn.disabled = false; btn.textContent = 'Entrar no Sistema'; }
+}
+
+function doLogout() {
+  localStorage.removeItem('techos_token');
+  token = ''; currentUser = null;
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-senha').value = '';
+}
+
+async function showApp() {
+  if (!currentUser) {
+    try { currentUser = await get('/api/auth/me'); } catch { doLogout(); return; }
+  }
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  // User info
+  document.getElementById('user-name').textContent = currentUser.nome;
+  document.getElementById('user-role').textContent = currentUser.perfil;
+  document.getElementById('user-avatar').textContent = currentUser.nome.charAt(0).toUpperCase();
+  // Admin menu
+  if (currentUser.perfil === 'admin') {
+    document.getElementById('admin-section').style.display = '';
+    document.getElementById('nav-usuarios').style.display = '';
+  }
+  setPage('dashboard');
+}
+
+async function salvarSenha() {
+  const sa = document.getElementById('senha-atual').value;
+  const sn = document.getElementById('senha-nova').value;
+  const sc = document.getElementById('senha-conf').value;
+  if (!sa || !sn) { toast('Preencha todos os campos', 'error'); return; }
+  if (sn !== sc) { toast('As senhas não coincidem', 'error'); return; }
+  if (sn.length < 6) { toast('Senha deve ter ao menos 6 caracteres', 'error'); return; }
+  try {
+    await put('/api/auth/senha', { senha_atual: sa, senha_nova: sn });
+    toast('Senha alterada com sucesso!', 'success');
+    closeModal('modal-conta');
+    ['senha-atual','senha-nova','senha-conf'].forEach(id => document.getElementById(id).value = '');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ============================================================
+// PAGES
+// ============================================================
+function setPage(p) {
+  currentPage = p; searchQuery = ''; filterStatus = 'all';
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === p));
+  const titles = { dashboard:'Dashboard', os:'Ordens de Serviço', clientes:'Clientes', tecnicos:'Técnicos', servicos:'Tipos de Serviço', usuarios:'Usuários' };
+  document.getElementById('page-title').textContent = titles[p] || p;
+  renderTopbarActions();
+  loadPage();
+}
+
+function renderTopbarActions() {
+  const el = document.getElementById('topbar-actions');
+  const isAdmin = currentUser?.perfil === 'admin';
+  if (currentPage === 'os' || currentPage === 'dashboard') {
+    el.innerHTML = `${currentPage==='os'?`<a class="btn btn-ghost btn-sm" href="/api/os/export/csv" download>⬇ CSV</a>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-conta').classList.add('open')">👤 Minha Conta</button>
+      <button class="btn btn-primary" onclick="openModalOS()">＋ Nova OS</button>`;
+  } else if (currentPage === 'clientes') {
+    el.innerHTML = `<button class="btn btn-primary" onclick="openModalCad('cliente')">＋ Novo Cliente</button>`;
+  } else if (currentPage === 'tecnicos') {
+    el.innerHTML = `<button class="btn btn-primary" onclick="openModalCad('tecnico')">＋ Novo Técnico</button>`;
+  } else if (currentPage === 'servicos') {
+    el.innerHTML = `<button class="btn btn-primary" onclick="openModalCad('servico')">＋ Novo Serviço</button>`;
+  } else if (currentPage === 'usuarios' && isAdmin) {
+    el.innerHTML = `<button class="btn btn-primary" onclick="openModalCad('usuario')">＋ Novo Usuário</button>`;
+  } else {
+    el.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="document.getElementById('modal-conta').classList.add('open')">👤 Minha Conta</button>`;
+  }
+}
+
+async function loadPage() {
+  document.getElementById('app-content').innerHTML = `<div class="loading"><div class="spinner"></div>Carregando...</div>`;
+  try {
+    if (currentPage === 'dashboard') await renderDashboard();
+    else if (currentPage === 'os') await renderOS();
+    else if (currentPage === 'clientes') await renderClientes();
+    else if (currentPage === 'tecnicos') await renderTecnicos();
+    else if (currentPage === 'servicos') await renderServicos();
+    else if (currentPage === 'usuarios') await renderUsuarios();
+    await updateBadge();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function updateBadge() {
+  try {
+    const d = await get('/api/dashboard');
+    document.getElementById('badge-os').textContent = (d.stats.abertas||0)+(d.stats.andamento||0);
+  } catch {}
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+async function renderDashboard() {
+  const data = await get('/api/dashboard');
+  const s = data.stats;
+  document.getElementById('app-content').innerHTML = `
+  <div class="stats-grid">
+    <div class="stat-card stat-blue"><div class="stat-label">Total OS</div><div class="stat-value">${s.total}</div><div class="stat-sub">Todas as ordens</div></div>
+    <div class="stat-card stat-yellow"><div class="stat-label">Em Aberto</div><div class="stat-value">${(s.abertas||0)+(s.andamento||0)}</div><div class="stat-sub">${s.andamento||0} em andamento</div></div>
+    <div class="stat-card stat-green"><div class="stat-label">Concluídas</div><div class="stat-value">${s.concluidas||0}</div><div class="stat-sub">Finalizadas</div></div>
+    <div class="stat-card stat-blue"><div class="stat-label">Receita Concluída</div><div class="stat-value" style="font-size:20px">R$${fmtMoney(s.receita_total)}</div><div class="stat-sub">R$${fmtMoney(s.receita_pendente)} pendente</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Por Prioridade (abertas)</div></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        ${['Alta','Media','Baixa'].map(p=>{
+          const item=data.porPrioridade.find(x=>x.prioridade===p)||{total:0};
+          const max=Math.max(...data.porPrioridade.map(x=>x.total),1);
+          const pct=Math.round(item.total/max*100);
+          const c=p==='Alta'?'var(--danger)':p==='Media'?'var(--warning)':'var(--success)';
+          const label=p==='Media'?'Média':p;
+          return `<div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;font-weight:600">${label}</span><span style="font-size:12px;color:var(--text2)">${item.total}</span></div>
+            <div style="background:var(--bg);border-radius:4px;height:6px;overflow:hidden"><div style="background:${c};height:100%;width:${pct}%;border-radius:4px;transition:width .5s"></div></div></div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Top Técnicos</div></div>
+      <table><thead><tr><th>Técnico</th><th>OS</th><th>Concluídas</th></tr></thead><tbody>
+        ${data.porTecnico.length?data.porTecnico.map(t=>`<tr><td style="font-weight:500">${t.nome}</td><td><span class="tag-inline">${t.total}</span></td><td style="color:var(--success)">${t.concluidas}</td></tr>`).join(''):
+        '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:20px">Sem dados</td></tr>'}
+      </tbody></table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">OS Recentes</div><button class="btn btn-ghost btn-sm" onclick="setPage('os')">Ver todas →</button></div>
+    <table><thead><tr><th>Nº OS</th><th>Cliente</th><th>Serviço</th><th>Técnico</th><th>Status</th><th>Prioridade</th></tr></thead><tbody>
+      ${data.recentes.length?data.recentes.map(o=>`<tr>
+        <td><span class="os-num" onclick="showDetail(${o.id})">#${o.numero}</span></td>
+        <td>${o.cliente_nome||'—'}</td><td style="color:var(--text2);font-size:12px">${o.tipo_nome||'—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${o.tecnico_nome||'—'}</td>
+        <td>${badgeStatus(o.status)}</td><td>${prioBadge(o.prioridade)}</td></tr>`).join(''):
+      '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><div>Nenhuma OS cadastrada</div></div></td></tr>'}
+    </tbody></table>
+  </div>`;
+}
+
+// ============================================================
+// OS
+// ============================================================
+async function renderOS() {
+  const params = new URLSearchParams();
+  if (filterStatus !== 'all') params.set('status', filterStatus);
+  if (searchQuery) params.set('search', searchQuery);
+  const [list, all] = await Promise.all([get('/api/os?'+params), get('/api/os')]);
+  const counts = { all: all.length };
+  all.forEach(o => { counts[o.status] = (counts[o.status]||0)+1; });
+
+  document.getElementById('app-content').innerHTML = `
+  <div class="filter-bar">
+    ${[['all','Todas'],['Aberta','Abertas'],['Em Andamento','Andamento'],['Concluida','Concluídas'],['Cancelada','Canceladas']].map(([k,l])=>
+      `<div class="filter-chip ${filterStatus===k?'active':''}" onclick="setOsFilter('${k}')">${l} <span style="opacity:.55">(${counts[k]||0})</span></div>`).join('')}
+    <div style="margin-left:auto"><div class="search-box"><span style="color:var(--text3)">🔍</span>
+      <input type="text" placeholder="Buscar cliente, nº OS, serviço..." value="${searchQuery}" oninput="debounceSearch(this.value)"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Ordens de Serviço <span style="color:var(--text3);font-weight:400;font-size:12px">(${list.length})</span></div></div>
+    <table><thead><tr><th>Nº OS</th><th>Data</th><th>Cliente</th><th>Serviço</th><th>Técnico</th><th>Status</th><th>Prio.</th><th>Total</th><th></th></tr></thead><tbody>
+      ${!list.length?`<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🔍</div><div>Nenhuma OS encontrada</div></div></td></tr>`:
+      list.map(o=>`<tr>
+        <td><span class="os-num" onclick="showDetail(${o.id})">#${o.numero}</span></td>
+        <td style="color:var(--text3);font-size:11px">${fmtDate(o.created_at)}</td>
+        <td style="font-weight:500">${o.cliente_nome||'—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${o.tipo_nome||'—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${o.tecnico_nome||'—'}</td>
+        <td>${badgeStatus(o.status)}</td><td>${prioBadge(o.prioridade)}</td>
+        <td style="font-family:'Space Mono';font-size:11px;color:var(--success)">R$${fmtMoney(o.total)}</td>
+        <td style="white-space:nowrap">
+          <button class="action-btn" onclick="showDetail(${o.id})" title="Ver">👁</button>
+          <button class="action-btn" onclick="editOS(${o.id})" title="Editar">✏️</button>
+          <a class="action-btn" href="/api/os/${o.id}/pdf" target="_blank" title="PDF">📄</a>
+          <button class="action-btn" onclick="deleteOS(${o.id})" title="Excluir">🗑</button>
+        </td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+function setOsFilter(f) { filterStatus = f; loadPage(); }
+function debounceSearch(v) { searchQuery = v; clearTimeout(searchTimer); searchTimer = setTimeout(()=>loadPage(), 350); }
+
+// ============================================================
+// CLIENTES
+// ============================================================
+async function renderClientes() {
+  const [clientes, os] = await Promise.all([get('/api/clientes'), get('/api/os')]);
+  document.getElementById('app-content').innerHTML = `
+  <div class="card">
+    <div class="card-header"><div class="card-title">Clientes (${clientes.length})</div></div>
+    <table><thead><tr><th>#</th><th>Nome</th><th>Telefone</th><th>Email</th><th>CPF/CNPJ</th><th>OS</th><th></th></tr></thead><tbody>
+      ${clientes.map(c=>`<tr>
+        <td style="color:var(--text3);font-size:11px;font-family:'Space Mono'">${String(c.id).padStart(3,'0')}</td>
+        <td style="font-weight:500">${c.nome}</td><td style="color:var(--text2)">${c.telefone||'—'}</td>
+        <td style="color:var(--text2)">${c.email||'—'}</td><td style="font-size:12px;color:var(--text3)">${c.cpf_cnpj||'—'}</td>
+        <td><span class="tag-inline">${os.filter(o=>o.cliente_id===c.id).length}</span></td>
+        <td><button class="action-btn" onclick="openModalCad('cliente',${esc(c)})">✏️</button>
+            <button class="action-btn" onclick="deleteCad('clientes',${c.id})">🗑</button></td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+// ============================================================
+// TECNICOS
+// ============================================================
+async function renderTecnicos() {
+  const [tecs, os] = await Promise.all([get('/api/tecnicos'), get('/api/os')]);
+  document.getElementById('app-content').innerHTML = `
+  <div class="card">
+    <div class="card-header"><div class="card-title">Técnicos (${tecs.length})</div></div>
+    <table><thead><tr><th>#</th><th>Nome</th><th>Especialidade</th><th>Telefone</th><th>Ativas</th><th>Concluídas</th><th>Status</th><th></th></tr></thead><tbody>
+      ${tecs.map(t=>`<tr>
+        <td style="color:var(--text3);font-size:11px;font-family:'Space Mono'">${String(t.id).padStart(3,'0')}</td>
+        <td style="font-weight:500">${t.nome}</td><td><span class="tag-inline">${t.especialidade||'—'}</span></td>
+        <td style="color:var(--text2)">${t.telefone||'—'}</td>
+        <td>${os.filter(o=>o.tecnico_id===t.id&&o.status==='Em Andamento').length}</td>
+        <td style="color:var(--success)">${os.filter(o=>o.tecnico_id===t.id&&o.status==='Concluida').length}</td>
+        <td>${t.ativo?'<span class="badge badge-concluida">Ativo</span>':'<span class="badge badge-cancelada">Inativo</span>'}</td>
+        <td><button class="action-btn" onclick="openModalCad('tecnico',${esc(t)})">✏️</button>
+            <button class="action-btn" onclick="deleteCad('tecnicos',${t.id})">🗑</button></td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+// ============================================================
+// SERVIÇOS
+// ============================================================
+async function renderServicos() {
+  const [tipos, os] = await Promise.all([get('/api/tipos-servico'), get('/api/os')]);
+  document.getElementById('app-content').innerHTML = `
+  <div class="card">
+    <div class="card-header"><div class="card-title">Tipos de Serviço (${tipos.length})</div></div>
+    <table><thead><tr><th>#</th><th>Nome</th><th>Valor Base</th><th>Abertas</th><th>Concluídas</th><th></th></tr></thead><tbody>
+      ${tipos.map(s=>`<tr>
+        <td style="color:var(--text3);font-size:11px;font-family:'Space Mono'">${String(s.id).padStart(3,'0')}</td>
+        <td style="font-weight:500">${s.nome}</td>
+        <td style="font-family:'Space Mono';font-size:12px;color:var(--success)">R$${fmtMoney(s.valor_base)}</td>
+        <td>${os.filter(o=>o.tipo_servico_id===s.id&&(o.status==='Aberta'||o.status==='Em Andamento')).length}</td>
+        <td style="color:var(--success)">${os.filter(o=>o.tipo_servico_id===s.id&&o.status==='Concluida').length}</td>
+        <td><button class="action-btn" onclick="openModalCad('servico',${esc(s)})">✏️</button></td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+// ============================================================
+// USUÁRIOS (admin)
+// ============================================================
+async function renderUsuarios() {
+  if (currentUser?.perfil !== 'admin') { document.getElementById('app-content').innerHTML = `<div class="empty-state"><div class="empty-icon">🔒</div><div>Acesso restrito a administradores</div></div>`; return; }
+  const users = await get('/api/usuarios');
+  document.getElementById('app-content').innerHTML = `
+  <div class="card">
+    <div class="card-header"><div class="card-title">Usuários do Sistema (${users.length})</div></div>
+    <table><thead><tr><th>#</th><th>Nome</th><th>Email</th><th>Perfil</th><th>Status</th><th>Último Login</th><th></th></tr></thead><tbody>
+      ${users.map(u=>`<tr>
+        <td style="color:var(--text3);font-size:11px;font-family:'Space Mono'">${String(u.id).padStart(3,'0')}</td>
+        <td style="font-weight:500">${u.nome}${u.id===currentUser.id?' <span style="font-size:10px;color:var(--accent)">(você)</span>':''}</td>
+        <td style="color:var(--text2)">${u.email}</td>
+        <td><span class="badge perfil-${u.perfil}">${u.perfil}</span></td>
+        <td>${u.ativo?'<span class="badge badge-concluida">Ativo</span>':'<span class="badge badge-cancelada">Inativo</span>'}</td>
+        <td style="font-size:11px;color:var(--text3)">${u.ultimo_login?fmtDate(u.ultimo_login):'Nunca'}</td>
+        <td><button class="action-btn" onclick="openModalCad('usuario',${esc(u)})">✏️</button>
+            ${u.id!==currentUser.id?`<button class="action-btn" onclick="deleteCad('usuarios',${u.id})">🗑</button>`:''}</td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+// ============================================================
+// MODAL OS
+// ============================================================
+async function openModalOS(id) {
+  currentEditId = id || null;
+  const [clientes, tecnicos, tipos] = await Promise.all([get('/api/clientes'), get('/api/tecnicos'), get('/api/tipos-servico')]);
+  document.getElementById('f-cliente').innerHTML = `<option value="">Selecione o cliente...</option>` + clientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  document.getElementById('f-tipo').innerHTML = `<option value="">Selecione o serviço...</option>` + tipos.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
+  document.getElementById('f-tecnico').innerHTML = `<option value="">— Sem técnico —</option>` + tecnicos.filter(t=>t.ativo).map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
+  if (id) {
+    document.getElementById('modal-os-title').textContent = 'Editar OS';
+    const os = await get('/api/os/'+id);
+    document.getElementById('f-cliente').value = os.cliente_id||'';
+    document.getElementById('f-tipo').value = os.tipo_servico_id||'';
+    document.getElementById('f-tecnico').value = os.tecnico_id||'';
+    document.getElementById('f-prioridade').value = os.prioridade;
+    document.getElementById('f-status').value = os.status;
+    document.getElementById('f-prazo').value = os.prazo||'';
+    document.getElementById('f-equipamento').value = os.equipamento||'';
+    document.getElementById('f-serie').value = os.numero_serie||'';
+    document.getElementById('f-descricao').value = os.descricao||'';
+    document.getElementById('f-obs').value = os.observacoes||'';
+    document.getElementById('f-vp').value = os.valor_pecas||'';
+    document.getElementById('f-vm').value = os.valor_mao_obra||'';
+    document.getElementById('f-laudo').value = os.laudo||'';
+    document.getElementById('laudo-group').style.display = '';
+  } else {
+    document.getElementById('modal-os-title').textContent = 'Nova Ordem de Serviço';
+    ['f-cliente','f-tipo','f-tecnico','f-prazo','f-equipamento','f-serie','f-descricao','f-obs','f-vp','f-vm','f-laudo'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('f-prioridade').value = 'Media';
+    document.getElementById('f-status').value = 'Aberta';
+    document.getElementById('laudo-group').style.display = 'none';
+  }
+  document.getElementById('modal-os').classList.add('open');
+}
+
+async function saveOS() {
+  const btn = document.getElementById('btn-save-os');
+  btn.disabled = true; btn.textContent = '⏳ Salvando...';
+  try {
+    const body = {
+      cliente_id: document.getElementById('f-cliente').value||null,
+      tipo_servico_id: document.getElementById('f-tipo').value||null,
+      tecnico_id: document.getElementById('f-tecnico').value||null,
+      prioridade: document.getElementById('f-prioridade').value,
+      status: document.getElementById('f-status').value,
+      prazo: document.getElementById('f-prazo').value||null,
+      equipamento: document.getElementById('f-equipamento').value,
+      numero_serie: document.getElementById('f-serie').value,
+      descricao: document.getElementById('f-descricao').value,
+      observacoes: document.getElementById('f-obs').value,
+      laudo: document.getElementById('f-laudo').value,
+      valor_pecas: parseFloat(document.getElementById('f-vp').value)||0,
+      valor_mao_obra: parseFloat(document.getElementById('f-vm').value)||0,
+    };
+    if (!body.cliente_id || !body.descricao.trim()) { toast('Preencha os campos obrigatórios', 'error'); return; }
+    if (currentEditId) await put('/api/os/'+currentEditId, body);
+    else await post('/api/os', body);
+    toast(currentEditId?'OS atualizada!':'OS criada com sucesso!', 'success');
+    closeModal('modal-os'); loadPage();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.disabled=false; btn.textContent='💾 Salvar OS'; }
+}
+
+function editOS(id) { openModalOS(id); }
+async function deleteOS(id) {
+  if (!confirm('Confirma exclusão desta OS?')) return;
+  await del('/api/os/'+id); toast('OS excluída.','error'); loadPage();
+}
+
+// ============================================================
+// DETAIL
+// ============================================================
+async function showDetail(id) {
+  currentDetailId = id;
+  const os = await get('/api/os/'+id);
+  document.getElementById('d-num').textContent = `OS #${os.numero}`;
+  document.getElementById('d-meta').textContent = `Aberta em ${fmtDate(os.created_at)}${os.data_conclusao?' • Concluída em '+fmtDate(os.data_conclusao):''}`;
+  document.getElementById('d-pdf-btn').href = `/api/os/${id}/pdf`;
+
+  const statusLabel = { 'Aberta':'Aberta','Em Andamento':'Em Andamento','Concluida':'Concluída','Cancelada':'Cancelada' };
+  const prioLabel = { 'Alta':'Alta','Media':'Média','Baixa':'Baixa' };
+
+  const rows = [
+    ['Status', badgeStatus(os.status)],
+    ['Prioridade', prioBadge(os.prioridade)],
+    ['Cliente', os.cliente_nome||'—'],
+    ['Serviço', os.tipo_nome||'—'],
+    ['Técnico', os.tecnico_nome||'—'],
+    ['Prazo', os.prazo?fmtDateStr(os.prazo):'—'],
+    ['Equipamento', os.equipamento||'—'],
+    ['Nº de Série', os.numero_serie||'—'],
+    ['Descrição', os.descricao||'—'],
+    os.observacoes?['Observações', os.observacoes]:null,
+    os.laudo?['Laudo Técnico', os.laudo]:null,
+    ['Valor Peças', `R$ ${fmtMoney(os.valor_pecas)}`],
+    ['Mão de Obra', `R$ ${fmtMoney(os.valor_mao_obra)}`],
+    ['Total', `<span style="font-family:'Space Mono';font-weight:700;color:var(--success)">R$ ${fmtMoney((+os.valor_pecas||0)+(+os.valor_mao_obra||0))}</span>`],
+  ].filter(Boolean);
+
+  const hist = os.historico||[];
+  document.getElementById('d-body').innerHTML = `
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab(this,'tab-info')">ℹ️ Informações</div>
+    <div class="tab" onclick="switchTab(this,'tab-hist')">📜 Histórico (${hist.length})</div>
+  </div>
+  <div id="tab-info">${rows.map(([k,v])=>`<div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${v}</div></div>`).join('')}</div>
+  <div id="tab-hist" style="display:none">
+    ${hist.length?hist.map(h=>`<div class="hist-item"><div class="hist-dot"></div><div class="hist-content">
+      <div class="hist-acao">${h.acao}${h.usuario?' <span style="color:var(--text3);font-weight:400">por '+h.usuario+'</span>':''}</div>
+      <div class="hist-desc">${h.descricao||''}</div>
+      <div class="hist-time">${fmtDateTime(h.created_at)}</div>
+    </div></div>`).join(''):'<p style="color:var(--text3);font-size:13px;padding:12px 0">Sem histórico</p>'}
+  </div>`;
+  document.getElementById('modal-detail').classList.add('open');
+}
+
+function switchTab(el, tabId) {
+  const parent = el.closest('.modal-body');
+  parent.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['tab-info','tab-hist'].forEach(id=>{const t=document.getElementById(id);if(t)t.style.display='none';});
+  document.getElementById(tabId).style.display='';
+}
+
+// ============================================================
+// MODAL CADASTRO
+// ============================================================
+function openModalCad(tipo, data) {
+  cadData = { tipo, data };
+  const titles = { cliente:data?'Editar Cliente':'Novo Cliente', tecnico:data?'Editar Técnico':'Novo Técnico', servico:data?'Editar Serviço':'Novo Serviço', usuario:data?'Editar Usuário':'Novo Usuário' };
+  document.getElementById('cad-title').textContent = titles[tipo];
+  const bodies = {
+    cliente: `<div class="form-grid">
+      <div class="form-group full"><label>Nome<span class="req">*</span></label><input id="cd-nome" value="${data?.nome||''}"></div>
+      <div class="form-group"><label>Telefone</label><input id="cd-tel" value="${data?.telefone||''}"></div>
+      <div class="form-group"><label>Email</label><input id="cd-email" type="email" value="${data?.email||''}"></div>
+      <div class="form-group"><label>CPF/CNPJ</label><input id="cd-cpf" value="${data?.cpf_cnpj||''}"></div>
+      <div class="form-group full"><label>Endereço</label><input id="cd-end" value="${data?.endereco||''}"></div></div>`,
+    tecnico: `<div class="form-grid">
+      <div class="form-group full"><label>Nome<span class="req">*</span></label><input id="cd-nome" value="${data?.nome||''}"></div>
+      <div class="form-group full"><label>Especialidade</label><input id="cd-esp" value="${data?.especialidade||''}"></div>
+      <div class="form-group"><label>Telefone</label><input id="cd-tel" value="${data?.telefone||''}"></div>
+      <div class="form-group"><label>Email</label><input id="cd-email" type="email" value="${data?.email||''}"></div>
+      ${data?`<div class="form-group full"><label>Status</label><select id="cd-ativo"><option value="1" ${data.ativo?'selected':''}>Ativo</option><option value="0" ${!data.ativo?'selected':''}>Inativo</option></select></div>`:''}</div>`,
+    servico: `<div class="form-grid">
+      <div class="form-group full"><label>Nome<span class="req">*</span></label><input id="cd-nome" value="${data?.nome||''}"></div>
+      <div class="form-group full"><label>Descrição</label><input id="cd-desc" value="${data?.descricao||''}"></div>
+      <div class="form-group"><label>Valor Base (R$)</label><input id="cd-valor" type="number" step="0.01" value="${data?.valor_base||0}"></div></div>`,
+    usuario: `<div class="form-grid">
+      <div class="form-group full"><label>Nome<span class="req">*</span></label><input id="cd-nome" value="${data?.nome||''}"></div>
+      <div class="form-group full"><label>Email<span class="req">*</span></label><input id="cd-email" type="email" value="${data?.email||''}"></div>
+      <div class="form-group full"><label>${data?'Nova Senha (deixe em branco para manter)':'Senha'}${!data?'<span class="req">*</span>':''}</label><input id="cd-senha" type="password" placeholder="••••••••"></div>
+      <div class="form-group"><label>Perfil</label><select id="cd-perfil">
+        <option value="operador" ${data?.perfil==='operador'?'selected':''}>Operador</option>
+        <option value="tecnico" ${data?.perfil==='tecnico'?'selected':''}>Técnico</option>
+        <option value="admin" ${data?.perfil==='admin'?'selected':''}>Admin</option>
+      </select></div>
+      <div class="form-group"><label>Status</label><select id="cd-ativo">
+        <option value="1" ${data?.ativo!==0?'selected':''}>Ativo</option>
+        <option value="0" ${data?.ativo===0?'selected':''}>Inativo</option>
+      </select></div></div>`,
+  };
+  document.getElementById('cad-body').innerHTML = bodies[tipo];
+  document.getElementById('btn-save-cad').onclick = saveCad;
+  document.getElementById('modal-cad').classList.add('open');
+}
+
+async function saveCad() {
+  const { tipo, data } = cadData;
+  const nome = document.getElementById('cd-nome')?.value?.trim();
+  if (!nome) { toast('Nome obrigatório', 'error'); return; }
+  try {
+    if (tipo === 'cliente') {
+      const body = { nome, telefone: document.getElementById('cd-tel')?.value, email: document.getElementById('cd-email')?.value, cpf_cnpj: document.getElementById('cd-cpf')?.value, endereco: document.getElementById('cd-end')?.value };
+      if (data) await put('/api/clientes/'+data.id, body); else await post('/api/clientes', body);
+    } else if (tipo === 'tecnico') {
+      const body = { nome, especialidade: document.getElementById('cd-esp')?.value, telefone: document.getElementById('cd-tel')?.value, email: document.getElementById('cd-email')?.value, ativo: document.getElementById('cd-ativo')?.value??1 };
+      if (data) await put('/api/tecnicos/'+data.id, body); else await post('/api/tecnicos', body);
+    } else if (tipo === 'servico') {
+      const body = { nome, descricao: document.getElementById('cd-desc')?.value, valor_base: parseFloat(document.getElementById('cd-valor')?.value)||0 };
+      if (data) await put('/api/tipos-servico/'+data.id, body); else await post('/api/tipos-servico', body);
+    } else if (tipo === 'usuario') {
+      const email = document.getElementById('cd-email')?.value?.trim();
+      const senha = document.getElementById('cd-senha')?.value;
+      const perfil = document.getElementById('cd-perfil')?.value;
+      const ativo = parseInt(document.getElementById('cd-ativo')?.value??1);
+      if (!email) { toast('Email obrigatório', 'error'); return; }
+      if (!data && !senha) { toast('Senha obrigatória para novo usuário', 'error'); return; }
+      const body = { nome, email, perfil, ativo, ...(senha?{senha}:{}) };
+      if (data) await put('/api/usuarios/'+data.id, body); else await post('/api/usuarios', body);
+    }
+    toast(data?'Atualizado!':'Cadastrado!', 'success');
+    closeModal('modal-cad'); loadPage();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteCad(endpoint, id) {
+  if (!confirm('Confirma exclusão?')) return;
+  await del(`/api/${endpoint}/${id}`); toast('Excluído.','error'); loadPage();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+const statusMap = { 'Aberta':'aberta','Em Andamento':'andamento','Concluida':'concluida','Concluída':'concluida','Cancelada':'cancelada' };
+const statusLabel = { 'Aberta':'Aberta','Em Andamento':'Em Andamento','Concluida':'Concluída','Cancelada':'Cancelada' };
+const prioMap = { 'Alta':'alta','Media':'media','Média':'media','Baixa':'baixa' };
+const prioLabel = { 'Alta':'Alta','Media':'Média','Baixa':'Baixa' };
+
+function badgeStatus(s) { return `<span class="badge badge-${statusMap[s]||'aberta'}">${statusLabel[s]||s}</span>`; }
+function prioBadge(p) { return `<span class="prio prio-${prioMap[p]||'media'}">${prioLabel[p]||p}</span>`; }
+function fmtDate(iso) { return iso?new Date(iso).toLocaleDateString('pt-BR'):'—'; }
+function fmtDateStr(s) { return s?new Date(s+'T12:00').toLocaleDateString('pt-BR'):'—'; }
+function fmtDateTime(iso) { return iso?new Date(iso).toLocaleString('pt-BR'):'—'; }
+function fmtMoney(v) { return (+v||0).toFixed(2).replace('.',','); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function esc(obj) { return JSON.stringify(obj).replace(/"/g,'&quot;'); }
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${type==='success'?'✅':type==='error'?'❌':'ℹ️'}</span>${msg}`;
+  document.getElementById('toast-wrap').appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(),300); }, 3200);
+}
+
+// Nav
+document.querySelectorAll('.nav-item[data-page]').forEach(el => el.addEventListener('click',()=>setPage(el.dataset.page)));
+document.querySelectorAll('.modal-overlay').forEach(ov => ov.addEventListener('click',e=>{ if(e.target===ov) closeModal(ov.id); }));
+
+// Init
+(async () => {
+  if (token) {
+    try { currentUser = await get('/api/auth/me'); showApp(); }
+    catch { doLogout(); }
+  }
+})();
+</script>
+</body>
+</html>

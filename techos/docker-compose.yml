@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  techos:
+    build: .
+    container_name: techos-app
+    ports:
+      - "3000:3000"
+    volumes:
+      - techos-data:/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/data/techos.db
+      - JWT_SECRET=mude-esta-chave-secreta-em-producao-2024
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/dashboard"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  techos-data:
+    driver: local
